@@ -1,0 +1,14 @@
+/.venv/
+/data/
+/results/
+/third_party/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.DS_Store
+Thumbs.db
+*.pcap
+*.pcapng
+*.state.gz
+*.npz
+.env
