@@ -155,6 +155,29 @@ class Cache:
             self._mean[key] = np.where(cnt > 0, (cs[hi] - cs[lo]) / np.maximum(cnt, 1), np.nan)
         return self._mean[key]
 
+    def interp(self, key):
+        if not hasattr(self, '_interpolated'):
+            self._interpolated = {}
+        if key in self._interpolated:
+            return self._interpolated[key]
+        values = self.c[key]
+        ticks = np.arange(len(values))
+        valid = np.isfinite(values)
+        changed = np.r_[True, (values[1:] != values[:-1]) & (valid[1:] | valid[:-1])]
+        last_change = np.maximum.accumulate(np.where(changed, ticks, 0))
+        reports = valid & (changed | ((ticks - last_change) % 10 == 0))
+        left = np.maximum.accumulate(np.where(reports, ticks, -len(ticks)-1))
+        right = np.minimum.accumulate(np.where(reports, ticks, 2*len(ticks)+1)[::-1])[::-1]
+        has_left = ticks - left <= self.skew
+        has_right = right - ticks <= self.skew
+        before = values[np.clip(left, 0, len(values)-1)]
+        after = values[np.clip(right, 0, len(values)-1)]
+        fraction = (ticks-left) / np.maximum(1, right-left)
+        estimate = np.where(has_left & has_right, before + fraction*(after-before),
+                            np.where(has_left, before, np.where(has_right, after, np.nan)))
+        self._interpolated[key] = estimate
+        return estimate
+
     def envelope(self, key):
         """min and max of the series over [t - skew, t + skew] (sampling-time skew between the terms)."""
         if key not in self.env:
@@ -177,16 +200,17 @@ def is_voltage(terms):
 def residual(cache, terms, signs, normalize_power=False):
     tot, sq = 0.0, 0.0
     lo, hi = 0.0, 0.0
-    use_mean = cache.skew > 0 and ALIGN == "mean"
+    point_alignment = cache.skew > 0 and ALIGN in ("mean", "interp")
+    aligned = {"mean": cache.mean, "interp": cache.interp}.get(ALIGN, cache)
     for (k, _), c in zip(terms, signs):
-        v = cache.mean(k) if use_mean else cache(k)
+        v = aligned(k) if point_alignment else cache(k)
         tot = tot + c * v
         sq = sq + v * v
-        if cache.skew > 0 and not use_mean:
+        if cache.skew > 0 and not point_alignment:
             a, b = cache.envelope(k)
             lo = lo + np.where(c > 0, c * a, c * b)
             hi = hi + np.where(c > 0, c * b, c * a)
-    if cache.skew > 0 and not use_mean:    # distance of 0 from the interval of values reachable within the skew
+    if cache.skew > 0 and not point_alignment:    # distance of 0 from the interval of values reachable within the skew
         tot = np.where(lo > 0, lo, np.where(hi < 0, hi, 0.0))
     if normalize_power and not is_voltage(terms):
         return tot / (np.sqrt(sq) + 1e3)  # 1 kW regularizer.
@@ -322,7 +346,7 @@ def main():
     ap.add_argument("--convention-from", default="",
                     help="JSON of a run on another grid of the same measurement system: set every sign from its "
                          "per-measurement-type convention, so no data of the monitored grid are used for signs")
-    ap.add_argument("--align", choices=["interval", "mean"], default="interval")
+    ap.add_argument("--align", choices=["interval", "mean", "interp"], default="interval")
     args = ap.parse_args()
     if not args.train and not (args.convention_from and args.thr_from):
         ap.error("provide --train or both --convention-from and --thr-from")

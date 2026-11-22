@@ -102,7 +102,7 @@ def ablation(results, out):
 
 
 def skew(results, out):
-    half_widths = (0, 5, 10, 20)
+    half_widths = (0, 5, 8, 9, 10, 11, 12, 20)
     fig, axes = plt.subplots(2, 1, figsize=(6.5, 4.35), sharex=True)
     for i, (name, color, marker) in enumerate(zip(SCENARIOS, SCENARIO_COLORS, MARKERS), start=1):
         rows = [load_json(results / "sensitivity" / f"{i:02}_skew{delta}_p30.json") for delta in half_widths]

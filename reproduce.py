@@ -114,7 +114,7 @@ def ablation_experiment(data, output):
     destination = output / "ablation"
     convention = require_file(output / "main" / "phys_01.json")
     destination.mkdir(parents=True, exist_ok=True)
-    for name, skew, align in (("plain", 0, "interval"), ("mean", 10, "mean")):
+    for name, skew, align in (("plain", 0, "interval"), ("mean", 10, "mean"), ("interp", 10, "interp")):
         thresholds = destination / f"phys_01_{name}.json"
         for scenario in SCENARIOS:
             tag = f"{scenario.tag}_{name}"
@@ -129,7 +129,7 @@ def sensitivity_experiment(data, output):
     destination = output / "sensitivity"
     convention = require_file(output / "main" / "phys_01.json")
     destination.mkdir(parents=True, exist_ok=True)
-    for skew, persist in ((0, 30), (5, 30), (10, 30), (20, 30), (10, 15), (10, 60)):
+    for skew, persist in ((0, 30), (5, 30), (8, 30), (9, 30), (10, 30), (11, 30), (12, 30), (20, 30), (10, 15), (10, 60)):
         suffix = f"skew{skew}_p{persist}"
         thresholds = destination / f"01_{suffix}.json"
         for scenario in SCENARIOS:
